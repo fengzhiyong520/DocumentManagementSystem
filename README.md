@@ -29,9 +29,6 @@
 
 ```
 DocumentManagementSystem/
-├── dms-common/          # 公共模块
-├── dms-system/          # 系统管理模块（用户、角色、权限）
-├── dms-file/            # 文件管理模块（资料、借阅）
 ├── dms-web/             # Web应用启动模块
 └── frontend/            # 前端项目
 ```
