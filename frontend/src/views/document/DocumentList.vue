@@ -183,8 +183,9 @@
     </n-modal>
 
     <!-- 资料详情对话框 -->
-    <n-modal v-model:show="showDetailModal" preset="card" title="资料详情" style="width: 600px">
-      <n-descriptions :column="1" bordered v-if="currentDocument">
+    <n-modal v-model:show="showDetailModal" preset="card" title="资料详情" style="width: 600px; max-height: 80vh">
+      <div style="max-height: calc(80vh - 180px); overflow-y: auto; padding-bottom: 10px">
+        <n-descriptions :column="1" bordered v-if="currentDocument">
         <n-descriptions-item label="标题">
           {{ currentDocument.title }}
         </n-descriptions-item>
@@ -217,6 +218,7 @@
           {{ currentDocument.createTime }}
         </n-descriptions-item>
       </n-descriptions>
+      </div>
       <template #footer>
         <n-space justify="end">
           <n-button @click="showDetailModal = false">关闭</n-button>
