@@ -64,7 +64,14 @@ export const getRoleList = () => {
   return request.get('/role/list')
 }
 
-export const updateCurrentUserInfo = (data: UserForm) => {
+export interface UpdateCurrentUserInfoForm {
+  nickname?: string
+  avatar?: string
+  email?: string
+  phone?: string
+}
+
+export const updateCurrentUserInfo = (data: UpdateCurrentUserInfoForm) => {
   return request.put('/user/info', data)
 }
 

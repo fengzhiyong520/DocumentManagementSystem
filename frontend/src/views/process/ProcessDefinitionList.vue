@@ -142,9 +142,7 @@ import {
   deleteProcessDefinition,
   deployProcessDefinition,
   getNodesByProcessDefinitionId,
-  saveNodes,
   updateNodes,
-  deleteNode,
   type ProcessDefinition, 
   type ProcessNode 
 } from '@/api/process'
@@ -168,7 +166,7 @@ const pagination = reactive({
 })
 
 const form = reactive<ProcessDefinition>({
-  id: null,
+  id: undefined,
   name: '',
   key: '',
   description: '',
@@ -399,7 +397,7 @@ const handleDelete = async (row: ProcessDefinition) => {
 const handleAdd = () => {
   isEdit.value = false
   Object.assign(form, {
-    id: null,
+    id: undefined,
     name: '',
     key: '',
     description: '',
@@ -544,7 +542,7 @@ const handleNodeSubmit = async () => {
     
     const nodeData: ProcessNode = {
       ...currentNode,
-      processDefinitionId: currentNodeDefinitionId.value,
+      processDefinitionId: currentNodeDefinitionId.value ?? undefined,
       assignee: assignee,
       candidateUsers: candidateUsers
     }
@@ -616,7 +614,7 @@ const handleSaveNodes = async () => {
     // 准备保存的数据：区分新增和编辑
     const nodesToSave = nodeForm.value.map(node => ({
       ...node,
-      processDefinitionId: currentNodeDefinitionId.value,
+      processDefinitionId: currentNodeDefinitionId.value ?? undefined,
       // 转换用户ID为字符串
       assignee: node.assignee ? String(node.assignee) : undefined,
       candidateUsers: node.candidateUsers 
