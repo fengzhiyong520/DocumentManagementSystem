@@ -12,7 +12,10 @@ import com.dms.entity.Role;
 import com.dms.mapper.UserMapper;
 import com.dms.mapper.RoleMapper;
 import com.dms.service.UserService;
+import com.dms.service.RoleMenuService;
+import com.dms.service.MenuService;
 import com.dms.vo.UserVO;
+import com.dms.vo.MenuVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +39,8 @@ import java.time.format.DateTimeFormatter;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private final RoleMapper roleMapper;
+    private final RoleMenuService roleMenuService;
+    private final MenuService menuService;
 
     @Value("${file.upload.local-path:D:/dms/upload}")
     private String localPath;
@@ -302,6 +307,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         admin.setPassword(BCrypt.hashpw(newPassword, BCrypt.gensalt()));
         this.updateById(admin);
+    }
+    
+    @Override
+    public java.util.List<MenuVO> getCurrentUserMenus() {
+        Long userId = StpUtil.getLoginIdAsLong();
+        User user = this.getById(userId);
+        if (user == null || user.getRoleId() == null) {
+            return java.util.Collections.emptyList();
+        }
+        
+        // 获取角色的菜单ID列表
+        java.util.List<Long> menuIds = roleMenuService.getMenuIdsByRoleId(user.getRoleId());
+        if (menuIds == null || menuIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        
+        // 根据菜单ID列表获取菜单树
+        return menuService.getMenuTreeByIds(menuIds);
     }
 }
 

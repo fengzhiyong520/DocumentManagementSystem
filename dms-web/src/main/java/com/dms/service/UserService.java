@@ -69,5 +69,10 @@ public interface UserService extends IService<User> {
      * 重置管理员密码（临时工具，生产环境请删除�?
      */
     void resetAdminPassword(String newPassword);
+    
+    /**
+     * 获取当前用户的菜单列表
+     */
+    java.util.List<com.dms.vo.MenuVO> getCurrentUserMenus();
 }
 

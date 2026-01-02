@@ -60,6 +60,41 @@ CREATE TABLE IF NOT EXISTS `sys_role_permission` (
   KEY `idx_permission_id` (`permission_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色权限关联表';
 
+-- 菜单表
+CREATE TABLE IF NOT EXISTS `sys_menu` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `menu_code` VARCHAR(50) NOT NULL COMMENT '菜单编码（唯一标识）',
+  `menu_name` VARCHAR(50) NOT NULL COMMENT '菜单名称',
+  `menu_type` VARCHAR(20) DEFAULT 'menu' COMMENT '菜单类型：menu-菜单 button-按钮',
+  `path` VARCHAR(255) COMMENT '路由路径',
+  `component` VARCHAR(255) COMMENT '组件路径',
+  `icon` VARCHAR(100) COMMENT '图标',
+  `parent_id` BIGINT DEFAULT 0 COMMENT '父菜单ID，0表示顶级菜单',
+  `sort_order` INT DEFAULT 0 COMMENT '排序',
+  `status` INT DEFAULT 1 COMMENT '状态：0-禁用 1-启用',
+  `description` VARCHAR(255) COMMENT '描述',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` INT DEFAULT 0 COMMENT '删除标志：0-未删除 1-已删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_menu_code` (`menu_code`),
+  KEY `idx_parent_id` (`parent_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='菜单表';
+
+-- 角色菜单关联表
+CREATE TABLE IF NOT EXISTS `sys_role_menu` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `role_id` BIGINT NOT NULL COMMENT '角色ID',
+  `menu_id` BIGINT NOT NULL COMMENT '菜单ID',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_role_menu` (`role_id`, `menu_id`),
+  KEY `idx_role_id` (`role_id`),
+  KEY `idx_menu_id` (`menu_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色菜单关联表';
+
 -- 资料表
 CREATE TABLE IF NOT EXISTS `file_document` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -157,4 +192,36 @@ INSERT INTO `sys_role` (`role_code`, `role_name`, `description`) VALUES
 -- 2. 或者直接执行 SQL 更新（需要先运行 PasswordHashGenerator 生成新的哈希值）
 INSERT INTO `sys_user` (`username`, `password`, `nickname`, `email`, `status`, `role_id`) VALUES
 ('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iwK8pJwC', '管理员', 'admin@example.com', 1, 1);
+
+-- 插入菜单初始数据
+-- 先插入所有顶级菜单
+INSERT INTO `sys_menu` (`menu_code`, `menu_name`, `menu_type`, `path`, `component`, `icon`, `parent_id`, `sort_order`, `status`, `description`) VALUES
+('dashboard', '首页统计', 'menu', 'dashboard', 'views/Dashboard.vue', 'HomeOutline', 0, 0, 1, '首页统计'),
+('role_config', '角色配置', 'menu', NULL, NULL, 'ShieldCheckmarkOutline', 0, 1, 1, '角色配置菜单组'),
+('user_manage', '用户管理', 'menu', 'user', 'views/user/UserList.vue', 'PeopleOutline', 0, 2, 1, '用户管理'),
+('document_manage', '资料管理', 'menu', 'document', 'views/document/DocumentList.vue', 'DocumentTextOutline', 0, 3, 1, '资料管理'),
+('borrow_manage', '审批管理', 'menu', 'borrow', 'views/borrow/BorrowList.vue', 'LibraryOutline', 0, 4, 1, '审批管理'),
+('borrow_history', '审批记录', 'menu', 'borrow-history', 'views/borrow/BorrowHistoryList.vue', 'CheckmarkCircleOutline', 0, 5, 1, '审批记录'),
+('hall_manage', '大厅管理', 'menu', 'hall', 'views/hall/Hall.vue', 'StorefrontOutline', 0, 6, 1, '大厅管理'),
+('process_config', '流程配置', 'menu', 'process-definition', 'views/process/ProcessDefinitionList.vue', 'SettingsOutline', 0, 7, 1, '流程配置');
+
+-- 插入子菜单（使用子查询获取父菜单ID）
+INSERT INTO `sys_menu` (`menu_code`, `menu_name`, `menu_type`, `path`, `component`, `icon`, `parent_id`, `sort_order`, `status`, `description`) 
+SELECT 
+  'role_manage', '角色管理', 'menu', 'role', 'views/user/RoleList.vue', 'ShieldCheckmarkOutline', id, 1, 1, '角色管理'
+FROM sys_menu WHERE menu_code = 'role_config' LIMIT 1;
+
+INSERT INTO `sys_menu` (`menu_code`, `menu_name`, `menu_type`, `path`, `component`, `icon`, `parent_id`, `sort_order`, `status`, `description`) 
+SELECT 
+  'permission_manage', '权限管理', 'menu', 'permission', 'views/user/PermissionList.vue', 'KeyOutline', id, 2, 1, '权限管理'
+FROM sys_menu WHERE menu_code = 'role_config' LIMIT 1;
+
+INSERT INTO `sys_menu` (`menu_code`, `menu_name`, `menu_type`, `path`, `component`, `icon`, `parent_id`, `sort_order`, `status`, `description`) 
+SELECT 
+  'menu_manage', '菜单管理', 'menu', 'menu', 'views/user/MenuList.vue', 'SettingsOutline', id, 3, 1, '菜单管理'
+FROM sys_menu WHERE menu_code = 'role_config' LIMIT 1;
+
+-- 为 admin 角色配置所有菜单（假设 admin 角色的 id 是 1）
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) 
+SELECT 1, id FROM sys_menu WHERE deleted = 0;
 

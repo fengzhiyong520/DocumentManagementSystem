@@ -44,3 +44,13 @@ export const getAllRoles = () => {
   return request.get('/role/list')
 }
 
+// 获取角色的菜单ID列表
+export const getRoleMenus = (id: number | string) => {
+  return request.get<number[]>(`/role/${id}/menus`)
+}
+
+// 保存角色的菜单配置
+export const saveRoleMenus = (id: number | string, menuIds: number[]) => {
+  return request.put(`/role/${id}/menus`, menuIds)
+}
+

@@ -96,9 +96,10 @@ import { ref, h, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { updateCurrentUserInfo, uploadAvatar } from '@/api/user'
+import { getCurrentUserMenus, type Menu } from '@/api/menu'
 import { HomeOutline, PeopleOutline, DocumentTextOutline, LibraryOutline, StorefrontOutline, PersonOutline, LogOutOutline, SettingsOutline, CheckmarkCircleOutline, ShieldCheckmarkOutline, KeyOutline } from '@vicons/ionicons5'
 import { useMessage } from 'naive-ui'
-import type { FormInst, UploadFileInfo } from 'naive-ui'
+import type { FormInst, UploadFileInfo, MenuOption } from 'naive-ui'
 
 const router = useRouter()
 const route = useRoute()
@@ -150,70 +151,89 @@ const userMenuOptions = computed(() => [
   }
 ])
 
-// 页面加载时获取用户信息（如果还没有）
-onMounted(() => {
+// 图标映射
+const iconMap: Record<string, any> = {
+  'HomeOutline': HomeOutline,
+  'PeopleOutline': PeopleOutline,
+  'DocumentTextOutline': DocumentTextOutline,
+  'LibraryOutline': LibraryOutline,
+  'StorefrontOutline': StorefrontOutline,
+  'PersonOutline': PersonOutline,
+  'LogOutOutline': LogOutOutline,
+  'SettingsOutline': SettingsOutline,
+  'CheckmarkCircleOutline': CheckmarkCircleOutline,
+  'ShieldCheckmarkOutline': ShieldCheckmarkOutline,
+  'KeyOutline': KeyOutline
+}
+
+// 动态菜单选项
+const menuOptions = ref<MenuOption[]>([])
+
+// 将菜单转换为 Naive UI 的菜单选项格式
+const convertMenuToOptions = (menus: Menu[]): MenuOption[] => {
+  return menus
+    .filter(menu => menu.menuType === 'menu') // 只显示菜单类型，不显示按钮类型
+    .map(menu => {
+      const option: MenuOption = {
+        label: menu.menuName,
+        key: menu.menuCode || String(menu.id),
+        path: menu.path
+      }
+      
+      // 如果有图标，设置图标
+      if (menu.icon) {
+        const IconComponent = iconMap[menu.icon]
+        if (IconComponent) {
+          option.icon = () => h(IconComponent)
+        }
+      }
+      
+      // 如果有子菜单，递归处理
+      if (menu.children && menu.children.length > 0) {
+        option.children = convertMenuToOptions(menu.children)
+      }
+      
+      return option
+    })
+}
+
+// 加载用户菜单
+const loadUserMenus = async () => {
+  try {
+    const res = await getCurrentUserMenus()
+    menuOptions.value = convertMenuToOptions(res.data || [])
+  } catch (error: any) {
+    console.error('加载用户菜单失败:', error)
+    // 如果加载失败，使用默认菜单
+    menuOptions.value = [
+      {
+        label: '首页统计',
+        key: 'Dashboard',
+        icon: () => h(HomeOutline)
+      }
+    ]
+  }
+}
+
+// 页面加载时获取用户信息和菜单
+onMounted(async () => {
   if (userStore.token && !userStore.userInfo) {
-    userStore.getUserInfoAction()
+    await userStore.getUserInfoAction()
+  }
+  // 加载用户菜单
+  if (userStore.token) {
+    await loadUserMenus()
   }
 })
 
-const menuOptions = [
-  {
-    label: '首页统计',
-    key: 'Dashboard',
-    icon: () => h(HomeOutline)
-  },
-  {
-    label: '角色配置',
-    key: 'Role',
-    icon: () => h(ShieldCheckmarkOutline),
-    children: [
-      {
-        label: '角色管理',
-        key: 'Role',
-        icon: () => h(ShieldCheckmarkOutline)
-      },
-      {
-        label: '权限管理',
-        key: 'Permission',
-        icon: () => h(KeyOutline)
-      }
-    ]
-  },
-  {
-    label: '用户管理',
-    key: 'User',
-    icon: () => h(PeopleOutline)
-  },
-  {
-    label: '资料管理',
-    key: 'Document',
-    icon: () => h(DocumentTextOutline)
-  },
-  {
-    label: '审批管理',
-    key: 'Borrow',
-    icon: () => h(LibraryOutline)
-  },
-  {
-    label: '审批记录',
-    key: 'BorrowHistory',
-    icon: () => h(CheckmarkCircleOutline)
-  },
-  {
-    label: '大厅管理',
-    key: 'Hall',
-    icon: () => h(StorefrontOutline)
-  },
-  {
-    label: '流程配置',
-    key: 'ProcessDefinition',
-    icon: () => h(SettingsOutline)
+const handleMenuSelect = (key: string, item?: MenuOption) => {
+  // 如果菜单项有 path，使用 path 跳转
+  if (item?.path) {
+    router.push(item.path)
+  } else {
+    // 否则使用 key 作为路由名称
+    router.push({ name: key })
   }
-]
-
-const handleMenuSelect = (key: string) => {
-  router.push({ name: key })
 }
 
 const handleUserMenuSelect = (key: string) => {

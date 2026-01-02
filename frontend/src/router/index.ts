@@ -35,6 +35,11 @@ const routes = [
         component: () => import('@/views/user/PermissionList.vue')
       },
       {
+        path: 'menu',
+        name: 'Menu',
+        component: () => import('@/views/user/MenuList.vue')
+      },
+      {
         path: 'document',
         name: 'Document',
         component: () => import('@/views/document/DocumentList.vue')

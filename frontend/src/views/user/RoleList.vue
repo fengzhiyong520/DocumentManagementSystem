@@ -76,13 +76,30 @@
         <n-button type="primary" @click="handleSavePermissions" :loading="permissionLoading">保存</n-button>
       </template>
     </n-modal>
+    <!-- 菜单配置对话框 -->
+    <n-modal v-model:show="showMenuModal" title="菜单配置" preset="dialog" style="width: 800px">
+      <div style="max-height: 500px; overflow-y: auto">
+        <n-tree
+          :data="menuTree"
+          :checked-keys="selectedMenuIds"
+          checkable
+          :check-strategy="'child'"
+          @update:checked-keys="handleMenuCheck"
+        />
+      </div>
+      <template #action>
+        <n-button @click="showMenuModal = false">取消</n-button>
+        <n-button type="primary" @click="handleSaveMenus" :loading="menuLoading">保存</n-button>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, h, onMounted, computed } from 'vue'
-import { getRoleList, createRole, updateRole, deleteRole, changeRoleStatus, type RoleForm } from '@/api/role'
+import { getRoleList, createRole, updateRole, deleteRole, changeRoleStatus, getRoleMenus, saveRoleMenus, type RoleForm } from '@/api/role'
 import { getPermissionList, getRolePermissions, saveRolePermissions, type PermissionVO } from '@/api/permission'
+import { getMenuTree, type Menu } from '@/api/menu'
 import { useMessage } from 'naive-ui'
 import type { DataTableColumns, FormInst } from 'naive-ui'
 
@@ -100,6 +117,10 @@ const permissionList = ref<PermissionVO[]>([])
 const filteredPermissionList = ref<PermissionVO[]>([])
 const selectedPermissionIds = ref<number[]>([])
 const permissionKeyword = ref('')
+const showMenuModal = ref(false)
+const menuLoading = ref(false)
+const menuTree = ref<any[]>([])
+const selectedMenuIds = ref<Array<string | number>>([])
 const currentRoleId = ref<number | string>('')
 const pagination = reactive({
   page: 1,
@@ -159,6 +180,13 @@ const columns: DataTableColumns = [
           type: 'info',
           onClick: () => handlePermissionConfig(row)
         }, { default: () => '权限配置' })
+      )
+      buttons.push(
+        h('n-button', {
+          size: 'small',
+          type: 'warning',
+          onClick: () => handleMenuConfig(row)
+        }, { default: () => '菜单配置' })
       )
       buttons.push(
         h('n-button', {
@@ -297,6 +325,61 @@ const loadPermissions = async () => {
   }
 }
 
+const loadMenuTree = async () => {
+  try {
+    const res = await getMenuTree()
+    menuTree.value = convertToTreeOptions(res.data || [])
+  } catch (error: any) {
+    message.error('加载菜单树失败')
+  }
+}
+
+const convertToTreeOptions = (menus: Menu[]): any[] => {
+  return menus.map(menu => ({
+    key: String(menu.id),
+    label: `${menu.menuName} (${menu.menuCode})`,
+    menu: menu,
+    children: menu.children ? convertToTreeOptions(menu.children) : undefined
+  }))
+}
+
+const handleMenuCheck = (keys: Array<string | number>) => {
+  selectedMenuIds.value = keys
+}
+
+const handleMenuConfig = async (row: any) => {
+  currentRoleId.value = row.id
+  selectedMenuIds.value = []
+  showMenuModal.value = true
+  
+  // 加载菜单树（如果还没有加载）
+  if (menuTree.value.length === 0) {
+    await loadMenuTree()
+  }
+  
+  // 加载当前角色的菜单
+  try {
+    const res = await getRoleMenus(row.id)
+    selectedMenuIds.value = (res.data || []).map((id: any) => String(id))
+  } catch (error: any) {
+    message.error('加载角色菜单失败')
+  }
+}
+
+const handleSaveMenus = async () => {
+  try {
+    menuLoading.value = true
+    const menuIds = selectedMenuIds.value.map(id => Number(id))
+    await saveRoleMenus(currentRoleId.value, menuIds)
+    message.success('保存成功')
+    showMenuModal.value = false
+  } catch (error: any) {
+    message.error(error.message || '保存失败')
+  } finally {
+    menuLoading.value = false
+  }
+}
+
 const filterPermissions = () => {
   if (!permissionKeyword.value) {
     filteredPermissionList.value = permissionList.value
@@ -348,6 +431,7 @@ const handleSavePermissions = async () => {
 onMounted(() => {
   loadData()
   loadPermissions()
+  loadMenuTree()
 })
 </script>
 

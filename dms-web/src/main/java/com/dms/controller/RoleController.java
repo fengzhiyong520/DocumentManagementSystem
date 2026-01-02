@@ -25,6 +25,7 @@ public class RoleController {
 
     private final RoleService roleService;
     private final RolePermissionService rolePermissionService;
+    private final com.dms.service.RoleMenuService roleMenuService;
 
     @Operation(summary = "获取所有角色列表")
     @GetMapping("/list")
@@ -93,6 +94,20 @@ public class RoleController {
     @PutMapping("/{id}/permissions")
     public R<?> saveRolePermissions(@PathVariable Long id, @RequestBody List<Long> permissionIds) {
         rolePermissionService.saveRolePermissions(id, permissionIds);
+        return R.success("保存成功");
+    }
+
+    @Operation(summary = "获取角色的菜单ID列表")
+    @GetMapping("/{id}/menus")
+    public R<List<Long>> getRoleMenus(@PathVariable Long id) {
+        List<Long> menuIds = roleMenuService.getMenuIdsByRoleId(id);
+        return R.success(menuIds);
+    }
+
+    @Operation(summary = "保存角色的菜单配置")
+    @PutMapping("/{id}/menus")
+    public R<?> saveRoleMenus(@PathVariable Long id, @RequestBody List<Long> menuIds) {
+        roleMenuService.saveRoleMenus(id, menuIds);
         return R.success("保存成功");
     }
 }

@@ -57,6 +57,13 @@ public class UserController {
         return R.success(user);
     }
 
+    @Operation(summary = "获取当前用户的菜单列表")
+    @GetMapping("/my/menus")
+    public R<java.util.List<com.dms.vo.MenuVO>> getCurrentUserMenus() {
+        java.util.List<com.dms.vo.MenuVO> menus = userService.getCurrentUserMenus();
+        return R.success(menus);
+    }
+
     @Operation(summary = "更新当前用户信息")
     @PutMapping("/info")
     public R<?> updateCurrentUserInfo(@RequestBody UserDTO userDTO) {
