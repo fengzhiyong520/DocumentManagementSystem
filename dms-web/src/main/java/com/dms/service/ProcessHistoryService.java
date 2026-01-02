@@ -4,9 +4,10 @@ import com.dms.vo.HistoricTaskVO;
 import com.dms.entity.User;
 import com.dms.mapper.UserMapper;
 import org.flowable.engine.HistoryService;
+import org.flowable.engine.history.HistoricDetail;
 import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.history.HistoricVariableUpdate;
 import org.flowable.task.api.history.HistoricTaskInstance;
-import org.flowable.variable.api.history.HistoricVariableInstance;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 
@@ -29,7 +30,7 @@ public class ProcessHistoryService {
     private final UserMapper userMapper;
     
     /**
-     * 获取 HistoryService（供其他服务使用�?
+     * 获取 HistoryService（供其他服务使用）
      */
     public HistoryService getHistoryService() {
         return historyService;
@@ -66,57 +67,45 @@ public class ProcessHistoryService {
                 .asc()
                 .list();
         
-        // 查询所有任务的历史变量（审批结果和备注�?
-        // 注意：Flowable 中，任务完成时设置的变量保存在流程实例级�?
-        // 我们通过查询每个任务相关的变量来获取审批结果和备�?
-        // 先查询所有变量，然后按时间匹配到对应的任�?
-        List<HistoricVariableInstance> allVariables = new java.util.ArrayList<>();
+        // 使用 HistoricDetail API 查询所有变量更新历史记录
+        // 这样可以获取每次变量更新的历史，而不是只获取最后一次的值
+        List<HistoricVariableUpdate> variableUpdates = new java.util.ArrayList<>();
         try {
-            // 分别查询 approved �?remark 变量
+            // 查询所有变量更新历史记录
             @SuppressWarnings("unchecked")
-            List<HistoricVariableInstance> approvedVars = (List<HistoricVariableInstance>) historyService
-                    .createHistoricVariableInstanceQuery()
+            List<HistoricDetail> allDetails = (List<HistoricDetail>) historyService
+                    .createHistoricDetailQuery()
                     .processInstanceId(processInstanceId)
-                    .variableName("approved")
+                    .variableUpdates()
+                    .orderByTime()
+                    .asc()
                     .list();
             
-            @SuppressWarnings("unchecked")
-            List<HistoricVariableInstance> remarkVars = (List<HistoricVariableInstance>) historyService
-                    .createHistoricVariableInstanceQuery()
-                    .processInstanceId(processInstanceId)
-                    .variableName("remark")
-                    .list();
-            
-            // 合并两个列表
-            allVariables.addAll(approvedVars);
-            allVariables.addAll(remarkVars);
-            
-            // 按创建时间排�?
-            allVariables.sort((v1, v2) -> {
-                if (v1.getCreateTime() == null && v2.getCreateTime() == null) {
-                    return 0;
+            // 筛选出 approved 和 remark 变量的更新记录
+            for (HistoricDetail detail : allDetails) {
+                if (detail instanceof HistoricVariableUpdate) {
+                    HistoricVariableUpdate varUpdate = (HistoricVariableUpdate) detail;
+                    String varName = varUpdate.getVariableName();
+                    if ("approved".equals(varName) || "remark".equals(varName)) {
+                        variableUpdates.add(varUpdate);
+                    }
                 }
-                if (v1.getCreateTime() == null) {
-                    return 1;
-                }
-                if (v2.getCreateTime() == null) {
-                    return -1;
-                }
-                return v1.getCreateTime().compareTo(v2.getCreateTime());
-            });
-        } catch (NoClassDefFoundError e) {
-            // 如果 HistoricVariableInstance 类不存在，跳过变量查�?
+            }
+        } catch (Exception e) {
+            // 如果查询失败，记录错误但继续执行
+            System.err.println("查询变量历史记录失败: " + e.getMessage());
+            e.printStackTrace();
         }
         
-        // 为每个任务匹配变�?
-        // 策略：按任务顺序，为每个任务匹配在其结束时间之后、下一个任务开始时间之前的变量
+        // 为每个任务匹配变量
+        // 策略：按任务顺序，为每个任务匹配在其结束时间之后、下一个任务开始时间之前的变量更新
         Map<String, Map<String, Object>> taskVariablesMap = new java.util.HashMap<>();
         for (int i = 0; i < tasks.size(); i++) {
             HistoricTaskInstance task = tasks.get(i);
             Map<String, Object> varMap = new java.util.HashMap<>();
             
-            // 如果任务已完成，查找该任务完成时的变�?
-            if (task.getEndTime() != null && !allVariables.isEmpty()) {
+            // 如果任务已完成，查找该任务完成时的变量
+            if (task.getEndTime() != null && !variableUpdates.isEmpty()) {
                 Date taskEndTime = task.getEndTime();
                 // 下一个任务的开始时间（如果有）
                 Date nextTaskStartTime = null;
@@ -127,48 +116,50 @@ public class ProcessHistoryService {
                     }
                 }
                 
-                // 查找在该任务完成时间点设置的变量
-                // 策略：查找在任务结束时间之后、下一个任务开始时间之前（或没有下一个任务）的变�?
-                HistoricVariableInstance approvedVar = null;
-                HistoricVariableInstance remarkVar = null;
+                // 查找在该任务完成时间点设置的变量更新
+                // 策略：查找在任务结束时间之后、下一个任务开始时间之前（或没有下一个任务）的变量更新
+                HistoricVariableUpdate approvedUpdate = null;
+                HistoricVariableUpdate remarkUpdate = null;
                 long minApprovedDiff = Long.MAX_VALUE;
                 long minRemarkDiff = Long.MAX_VALUE;
                 
-                for (HistoricVariableInstance var : allVariables) {
-                    String varName = var.getVariableName();
-                    if (var.getCreateTime() != null) {
-                        long varTime = var.getCreateTime().getTime();
+                for (HistoricVariableUpdate varUpdate : variableUpdates) {
+                    String varName = varUpdate.getVariableName();
+                    Date varTime = varUpdate.getTime();
+                    
+                    if (varTime != null) {
+                        long varTimeMs = varTime.getTime();
                         long taskEndTimeMs = taskEndTime.getTime();
-                        long timeDiff = varTime - taskEndTimeMs;
+                        long timeDiff = varTimeMs - taskEndTimeMs;
                         
-                        // 变量应该在任务结束时间之后（任务完成时设置的变量�?
-                        // 如果有下一个任务，变量应该在下一个任务开始时间之�?
-                        // 扩大时间窗口�?20秒，确保能匹配到变量
-                        boolean inTimeRange = timeDiff >= -5000 && timeDiff <= 120000; // 允许任务结束前后5秒到120�?
+                        // 变量应该在任务结束时间之后（任务完成时设置的变量）
+                        // 如果有下一个任务，变量应该在下一个任务开始时间之前
+                        // 时间窗口：任务结束后5秒内到下一个任务开始前（或流程结束前）
+                        boolean inTimeRange = timeDiff >= -5000 && timeDiff <= 10000; // 允许任务结束前后5秒到10秒
                         if (nextTaskStartTime != null) {
                             long nextTaskStartTimeMs = nextTaskStartTime.getTime();
-                            inTimeRange = inTimeRange && varTime < nextTaskStartTimeMs;
+                            inTimeRange = inTimeRange && varTimeMs < nextTaskStartTimeMs;
                         }
                         
                         if (inTimeRange) {
                             long absTimeDiff = Math.abs(timeDiff);
-                            // 优先匹配在任务结束时间之后设置的变量（更准确�?
+                            // 优先匹配在任务结束时间之后设置的变量（更准确）
                             if ("approved".equals(varName)) {
                                 // 如果变量在任务结束时间之后，优先选择
                                 if (timeDiff >= 0 && timeDiff < minApprovedDiff) {
-                                    approvedVar = var;
+                                    approvedUpdate = varUpdate;
                                     minApprovedDiff = timeDiff;
-                                } else if (approvedVar == null && absTimeDiff < minApprovedDiff) {
-                                    // 如果没有找到任务结束后的变量，使用最接近�?
-                                    approvedVar = var;
+                                } else if (approvedUpdate == null && absTimeDiff < minApprovedDiff) {
+                                    // 如果没有找到任务结束后的变量，使用最接近的
+                                    approvedUpdate = varUpdate;
                                     minApprovedDiff = absTimeDiff;
                                 }
                             } else if ("remark".equals(varName)) {
                                 if (timeDiff >= 0 && timeDiff < minRemarkDiff) {
-                                    remarkVar = var;
+                                    remarkUpdate = varUpdate;
                                     minRemarkDiff = timeDiff;
-                                } else if (remarkVar == null && absTimeDiff < minRemarkDiff) {
-                                    remarkVar = var;
+                                } else if (remarkUpdate == null && absTimeDiff < minRemarkDiff) {
+                                    remarkUpdate = varUpdate;
                                     minRemarkDiff = absTimeDiff;
                                 }
                             }
@@ -177,8 +168,8 @@ public class ProcessHistoryService {
                 }
                 
                 // 设置审批结果
-                if (approvedVar != null) {
-                    Object value = approvedVar.getValue();
+                if (approvedUpdate != null) {
+                    Object value = approvedUpdate.getValue();
                     if (value instanceof Boolean) {
                         varMap.put("approved", value);
                     } else if (value != null) {
@@ -187,8 +178,8 @@ public class ProcessHistoryService {
                 }
                 
                 // 设置审批备注
-                if (remarkVar != null) {
-                    Object value = remarkVar.getValue();
+                if (remarkUpdate != null) {
+                    Object value = remarkUpdate.getValue();
                     if (value != null) {
                         varMap.put("remark", value.toString());
                     }
@@ -206,7 +197,7 @@ public class ProcessHistoryService {
             vo.setId(task.getId());
             vo.setName(task.getName());
             vo.setAssignee(task.getAssignee());
-            // 查询审批人昵�?
+            // 查询审批人昵称
             if (task.getAssignee() != null && !task.getAssignee().trim().isEmpty()) {
                 try {
                     Long assigneeId = Long.parseLong(task.getAssignee());
@@ -215,12 +206,12 @@ public class ProcessHistoryService {
                         vo.setAssigneeName(assigneeUser.getNickname() != null ? assigneeUser.getNickname() : assigneeUser.getUsername());
                     }
                 } catch (NumberFormatException e) {
-                    // 如果 assignee 不是数字，可能是其他格式，忽�?
+                    // 如果 assignee 不是数字，可能是其他格式，忽略
                 }
             }
             vo.setOwner(task.getOwner());
             
-            // 转换时间（Date �?LocalDateTime�?
+            // 转换时间（Date 转 LocalDateTime）
             if (task.getStartTime() != null) {
                 Date startDate = task.getStartTime();
                 vo.setStartTime(LocalDateTime.ofInstant(
@@ -250,7 +241,7 @@ public class ProcessHistoryService {
             vo.setParentTaskId(task.getParentTaskId());
             vo.setDescription(task.getDescription());
             
-            // 从任务变量中获取审批结果和备�?
+            // 从任务变量中获取审批结果和备注
             Map<String, Object> taskVariables = taskVariablesMap.get(task.getId());
             if (taskVariables != null) {
                 // 获取审批结果
@@ -284,7 +275,7 @@ public class ProcessHistoryService {
     }
 
     /**
-     * 查询用户的历史任�?
+     * 查询用户的历史任务
      */
     public List<HistoricTaskInstance> getUserHistoryTasks(String userId) {
         return historyService.createHistoricTaskInstanceQuery()
@@ -296,7 +287,7 @@ public class ProcessHistoryService {
     }
 
     /**
-     * 根据业务键查询流程历�?
+     * 根据业务键查询流程历史
      */
     public HistoricProcessInstance getProcessInstanceByBusinessKey(String businessKey) {
         return historyService.createHistoricProcessInstanceQuery()
@@ -305,7 +296,7 @@ public class ProcessHistoryService {
     }
 
     /**
-     * 查询所有已完成的流程实�?
+     * 查询所有已完成的流程实例
      */
     public List<HistoricProcessInstance> getFinishedProcessInstances() {
         return historyService.createHistoricProcessInstanceQuery()
@@ -315,4 +306,3 @@ public class ProcessHistoryService {
                 .list();
     }
 }
-
