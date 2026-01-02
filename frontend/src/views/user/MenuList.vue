@@ -118,14 +118,25 @@ const rules = {
 const modalTitle = computed(() => (isEdit.value ? '编辑菜单' : '新增菜单'))
 
 const parentMenuOptions = computed(() => {
-  const buildOptions = (menus: Menu[]): TreeOption[] => {
-    return menus.map(menu => ({
-      id: menu.id,
-      menuName: menu.menuName,
-      children: menu.children ? buildOptions(menu.children) : undefined
-    }))
+  const buildOptions = (treeOptions: TreeOption[], excludeId?: number): any[] => {
+    return treeOptions
+      .filter(option => {
+        const menu = (option as any).menu as Menu
+        // 编辑时排除当前菜单及其子菜单
+        return !excludeId || menu.id !== excludeId
+      })
+      .map(option => {
+        const menu = (option as any).menu as Menu
+        return {
+          id: menu.id,
+          menuName: menu.menuName,
+          children: option.children ? buildOptions(option.children as TreeOption[], excludeId) : undefined
+        }
+      })
   }
-  return buildOptions(menuTree.value as any)
+  // 编辑时排除当前菜单
+  const excludeId = isEdit.value && form.id ? Number(form.id) : undefined
+  return buildOptions(menuTree.value, excludeId)
 })
 
 const loadMenuTree = async () => {
