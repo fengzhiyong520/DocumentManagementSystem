@@ -225,3 +225,23 @@ FROM sys_menu WHERE menu_code = 'role_config' LIMIT 1;
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`) 
 SELECT 1, id FROM sys_menu WHERE deleted = 0;
 
+-- 插入权限初始数据
+INSERT INTO `sys_permission` (`permission_code`, `permission_name`, `resource`, `method`, `description`) VALUES
+-- 用户管理权限
+('user:page', '分页查询用户', 'user/page', 'GET', '分页查询用户列表'),
+('user:create', '创建用户', 'user', 'POST', '创建新用户'),
+('user:update', '更新用户', 'user', 'PUT', '更新用户信息'),
+('user:delete', '删除用户', 'user/*', 'DELETE', '删除用户'),
+-- 角色管理权限
+('role:create', '创建角色', 'role', 'POST', '创建新角色'),
+('role:permissions:save', '保存角色权限', 'role/*/permissions', 'PUT', '保存角色的权限配置'),
+-- 菜单管理权限
+('menu:create', '创建菜单', 'menu', 'POST', '创建新菜单'),
+('menu:update', '更新菜单', 'menu', 'PUT', '更新菜单信息'),
+('menu:delete', '删除菜单', 'menu/*', 'DELETE', '删除菜单');
+
+-- 为 admin 角色配置所有权限（假设 admin 角色的 id 是 1）
+-- 注意：这里使用子查询确保在权限插入后再关联
+INSERT INTO `sys_role_permission` (`role_id`, `permission_id`) 
+SELECT 1, id FROM sys_permission WHERE deleted = 0;
+

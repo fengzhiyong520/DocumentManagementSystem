@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.poi.excel.ExcelReader;
 import cn.hutool.poi.excel.ExcelUtil;
 import cn.hutool.poi.excel.ExcelWriter;
+import com.dms.core.annotation.RequiresPermission;
 import com.dms.core.domain.R;
 import com.dms.utils.PageUtils;
 import com.dms.dto.UserDTO;
@@ -137,6 +138,7 @@ public class UserController {
     }
 
     @Operation(summary = "分页查询用户")
+    @RequiresPermission(resource = "user/page", method = "GET")
     @GetMapping("/page")
     public R<PageUtils<UserVO>> pageUser(
             @RequestParam(defaultValue = "1") Long current,
@@ -154,6 +156,7 @@ public class UserController {
     }
 
     @Operation(summary = "创建用户")
+    @RequiresPermission(resource = "user", method = "POST")
     @PostMapping
     public R<?> createUser(@Valid @RequestBody UserDTO userDTO) {
         userService.createUser(userDTO);
@@ -161,6 +164,7 @@ public class UserController {
     }
 
     @Operation(summary = "更新用户")
+    @RequiresPermission(resource = "user", method = "PUT")
     @PutMapping
     public R<?> updateUser(@Valid @RequestBody UserDTO userDTO) {
         userService.updateUser(userDTO);
@@ -168,6 +172,7 @@ public class UserController {
     }
 
     @Operation(summary = "删除用户")
+    @RequiresPermission(resource = "user/*", method = "DELETE")
     @DeleteMapping("/{id}")
     public R<?> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);

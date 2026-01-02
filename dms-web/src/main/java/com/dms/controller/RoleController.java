@@ -1,5 +1,6 @@
 package com.dms.controller;
 
+import com.dms.core.annotation.RequiresPermission;
 import com.dms.core.domain.R;
 import com.dms.utils.PageUtils;
 import com.dms.dto.RoleDTO;
@@ -56,6 +57,7 @@ public class RoleController {
     }
 
     @Operation(summary = "创建角色")
+    @RequiresPermission(resource = "role", method = "POST")
     @PostMapping
     public R<?> createRole(@Valid @RequestBody RoleDTO roleDTO) {
         roleService.createRole(roleDTO);
@@ -91,6 +93,7 @@ public class RoleController {
     }
 
     @Operation(summary = "保存角色的权限配置")
+    @RequiresPermission(resource = "role/*/permissions", method = "PUT")
     @PutMapping("/{id}/permissions")
     public R<?> saveRolePermissions(@PathVariable Long id, @RequestBody List<Long> permissionIds) {
         rolePermissionService.saveRolePermissions(id, permissionIds);

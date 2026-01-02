@@ -1,5 +1,6 @@
 package com.dms.controller;
 
+import com.dms.core.annotation.RequiresPermission;
 import com.dms.core.domain.R;
 import com.dms.dto.MenuDTO;
 import com.dms.service.MenuService;
@@ -38,6 +39,7 @@ public class MenuController {
     }
 
     @Operation(summary = "创建菜单")
+    @RequiresPermission(resource = "menu", method = "POST")
     @PostMapping
     public R<?> createMenu(@Valid @RequestBody MenuDTO menuDTO) {
         menuService.createMenu(menuDTO);
@@ -45,6 +47,7 @@ public class MenuController {
     }
 
     @Operation(summary = "更新菜单")
+    @RequiresPermission(resource = "menu", method = "PUT")
     @PutMapping
     public R<?> updateMenu(@Valid @RequestBody MenuDTO menuDTO) {
         menuService.updateMenu(menuDTO);
@@ -52,6 +55,7 @@ public class MenuController {
     }
 
     @Operation(summary = "删除菜单")
+    @RequiresPermission(resource = "menu/*", method = "DELETE")
     @DeleteMapping("/{id}")
     public R<?> deleteMenu(@PathVariable Long id) {
         menuService.deleteMenu(id);
