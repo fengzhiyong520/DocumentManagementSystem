@@ -238,10 +238,30 @@ INSERT INTO `sys_permission` (`permission_code`, `permission_name`, `resource`, 
 -- 菜单管理权限
 ('menu:create', '创建菜单', 'menu', 'POST', '创建新菜单'),
 ('menu:update', '更新菜单', 'menu', 'PUT', '更新菜单信息'),
-('menu:delete', '删除菜单', 'menu/*', 'DELETE', '删除菜单');
+('menu:delete', '删除菜单', 'menu/*', 'DELETE', '删除菜单'),
+-- 好友管理权限
+('friend:create', '添加好友', 'friend', 'POST', '添加好友'),
+('friend:update', '更新好友', 'friend', 'PUT', '更新好友备注'),
+('friend:delete', '删除好友', 'friend/*', 'DELETE', '删除好友');
 
 -- 为 admin 角色配置所有权限（假设 admin 角色的 id 是 1）
 -- 注意：这里使用子查询确保在权限插入后再关联
 INSERT INTO `sys_role_permission` (`role_id`, `permission_id`) 
 SELECT 1, id FROM sys_permission WHERE deleted = 0;
+
+-- 好友表
+CREATE TABLE IF NOT EXISTS `sys_friend` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `friend_id` BIGINT NOT NULL COMMENT '好友ID',
+  `remark` VARCHAR(50) COMMENT '备注名称',
+  `status` INT DEFAULT 2 COMMENT '状态：0-已删除 1-正常（已同意） 2-待同意（申请中）',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` INT DEFAULT 0 COMMENT '删除标志：0-未删除 1-已删除',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_friend` (`user_id`, `friend_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_friend_id` (`friend_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='好友表';
 

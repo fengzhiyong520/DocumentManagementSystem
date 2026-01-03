@@ -63,6 +63,11 @@ const routes = [
         path: 'process-definition',
         name: 'ProcessDefinition',
         component: () => import('@/views/process/ProcessDefinitionList.vue')
+      },
+      {
+        path: 'friend',
+        name: 'Friend',
+        component: () => import('@/views/user/FriendList.vue')
       }
     ]
   }
