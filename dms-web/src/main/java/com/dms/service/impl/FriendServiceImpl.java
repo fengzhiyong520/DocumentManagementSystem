@@ -128,24 +128,27 @@ public class FriendServiceImpl extends ServiceImpl<FriendMapper, Friend> impleme
             throw new RuntimeException("不能添加自己为好友");
         }
         
-        // 检查是否已经是好友（状态为1）
-        Friend existingFriend = this.getOne(new LambdaQueryWrapper<Friend>()
+        // 检查是否已经存在记录（包括所有状态）
+        Friend existingRecord = this.getOne(new LambdaQueryWrapper<Friend>()
                 .eq(Friend::getUserId, userId)
-                .eq(Friend::getFriendId, friendDTO.getFriendId())
-                .eq(Friend::getStatus, 1));
+                .eq(Friend::getFriendId, friendDTO.getFriendId()));
         
-        if (existingFriend != null) {
-            throw new RuntimeException("该用户已经是您的好友");
-        }
-        
-        // 检查是否已经发送过申请（状态为2）
-        Friend existingRequest = this.getOne(new LambdaQueryWrapper<Friend>()
-                .eq(Friend::getUserId, userId)
-                .eq(Friend::getFriendId, friendDTO.getFriendId())
-                .eq(Friend::getStatus, 2));
-        
-        if (existingRequest != null) {
-            throw new RuntimeException("您已经向该用户发送了好友申请，请等待对方同意");
+        if (existingRecord != null) {
+            // 如果状态为1（已同意），提示已经是好友
+            if (existingRecord.getStatus() == 1) {
+                throw new RuntimeException("该用户已经是您的好友");
+            }
+            // 如果状态为2（待同意），提示已经发送过申请
+            if (existingRecord.getStatus() == 2) {
+                throw new RuntimeException("您已经向该用户发送了好友申请，请等待对方同意");
+            }
+            // 如果状态为0（已删除），更新现有记录为待同意状态
+            if (existingRecord.getStatus() == 0) {
+                existingRecord.setStatus(2);
+                existingRecord.setRemark(friendDTO.getRemark());
+                this.updateById(existingRecord);
+                return;
+            }
         }
         
         // 检查对方是否已经向自己发送了申请，如果是，直接同意
@@ -159,12 +162,25 @@ public class FriendServiceImpl extends ServiceImpl<FriendMapper, Friend> impleme
             reverseRequest.setStatus(1);
             this.updateById(reverseRequest);
             
-            Friend friend = new Friend();
-            friend.setUserId(userId);
-            friend.setFriendId(friendDTO.getFriendId());
-            friend.setRemark(friendDTO.getRemark());
-            friend.setStatus(1);
-            this.save(friend);
+            // 检查自己是否已经有记录（可能是status=0的情况）
+            Friend myRecord = this.getOne(new LambdaQueryWrapper<Friend>()
+                    .eq(Friend::getUserId, userId)
+                    .eq(Friend::getFriendId, friendDTO.getFriendId()));
+            
+            if (myRecord != null) {
+                // 更新现有记录
+                myRecord.setStatus(1);
+                myRecord.setRemark(friendDTO.getRemark());
+                this.updateById(myRecord);
+            } else {
+                // 创建新的好友记录
+                Friend friend = new Friend();
+                friend.setUserId(userId);
+                friend.setFriendId(friendDTO.getFriendId());
+                friend.setRemark(friendDTO.getRemark());
+                friend.setStatus(1);
+                this.save(friend);
+            }
             return;
         }
         

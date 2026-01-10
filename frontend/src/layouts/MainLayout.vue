@@ -53,20 +53,28 @@
       <div>
         <n-tabs v-model:value="friendTabValue" type="line">
           <n-tab-pane name="friends" tab="我的好友">
-            <n-space justify="space-between" style="margin-bottom: 20px">
-              <n-button type="primary" @click="handleRequestFriend">申请添加好友</n-button>
-            </n-space>
-            <n-data-table
-              :columns="friendColumns"
-              :data="friendTableData"
-              :loading="friendLoading"
-            />
+            <div style="display: flex; flex-direction: column">
+              <n-space justify="space-between" style="margin-bottom: 16px; flex-shrink: 0">
+                <n-button type="primary" @click="handleRequestFriend">申请添加好友</n-button>
+              </n-space>
+              <div>
+                <n-data-table
+                  :columns="friendColumns"
+                  :data="friendTableData"
+                  :loading="friendLoading"
+                  :max-height="480"
+                  scroll-x="1000"
+                />
+              </div>
+            </div>
           </n-tab-pane>
           <n-tab-pane name="requests" tab="收到的申请">
             <n-data-table
               :columns="friendRequestColumns"
               :data="friendRequestTableData"
               :loading="friendRequestLoading"
+              :max-height="480"
+              scroll-x="1000"
             />
           </n-tab-pane>
           <n-tab-pane name="sent-requests" tab="我发送的申请">
@@ -74,6 +82,8 @@
               :columns="sentFriendRequestColumns"
               :data="sentFriendRequestTableData"
               :loading="sentFriendRequestLoading"
+              :max-height="480"
+              scroll-x="1000"
             />
           </n-tab-pane>
         </n-tabs>
@@ -197,11 +207,16 @@ const requestFriendFormRef = ref<FormInst>()
 const editFriendFormRef = ref<FormInst>()
 
 const requestFriendForm = reactive<FriendForm>({
-  friendId: undefined,
+  friendId: '' as number | string,
   remark: ''
 })
 
-const editFriendForm = reactive<FriendForm>({
+interface EditFriendForm {
+  id?: number | string
+  remark?: string
+}
+
+const editFriendForm = reactive<EditFriendForm>({
   id: undefined,
   remark: ''
 })
@@ -562,7 +577,7 @@ const sentFriendRequestColumns: DataTableColumns<FriendVO> = [
     title: '状态',
     key: 'status',
     width: 100,
-    render: (row: FriendVO) => {
+    render: () => {
       return h(
         'n-tag',
         { type: 'warning' },
@@ -573,7 +588,7 @@ const sentFriendRequestColumns: DataTableColumns<FriendVO> = [
   {
     title: '操作',
     key: 'actions',
-    width: 150,
+    width: 200,
     fixed: 'right',
     render: (row: FriendVO) => {
       return h('div', { style: 'display: flex; gap: 8px' }, [
@@ -670,7 +685,7 @@ const handleRequestFriend = async () => {
   }
   showRequestFriendModal.value = true
   Object.assign(requestFriendForm, {
-    friendId: undefined,
+    friendId: '' as number | string,
     remark: ''
   })
   await loadUserOptionsForFriend()
@@ -733,9 +748,14 @@ const handleEditFriend = (row: FriendVO) => {
 }
 
 const handleEditFriendSubmit = async () => {
+  if (!editFriendForm.id) return
   friendSubmitLoading.value = true
   try {
-    await updateFriend(editFriendForm)
+    await updateFriend({
+      id: editFriendForm.id,
+      friendId: '' as number | string, // 更新备注不需要friendId，但类型要求必须提供
+      remark: editFriendForm.remark
+    })
     message.success('更新成功')
     showEditFriendModal.value = false
     await loadFriendData()
